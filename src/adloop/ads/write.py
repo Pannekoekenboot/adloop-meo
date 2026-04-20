@@ -1173,14 +1173,18 @@ def confirm_and_apply(
     Defaults to dry_run=True. The caller must explicitly pass dry_run=False
     to make real changes.
     """
+    from adloop import store
     from adloop.safety.audit import log_mutation
-    from adloop.safety.preview import get_plan, remove_plan
+    from adloop.safety.preview import get_plan
 
     plan = get_plan(plan_id)
     if plan is None:
         return {
-            "error": f"No pending plan found with id '{plan_id}'. "
-            "Plans expire when the MCP server restarts.",
+            "error": (
+                f"No pending plan found with id '{plan_id}'. "
+                "Plans are persisted across restarts but a plan can only "
+                "be applied once; check the history view for its final state."
+            ),
         }
 
     if config.safety.require_dry_run:
@@ -1197,6 +1201,7 @@ def confirm_and_apply(
             dry_run=True,
             result="dry_run_success",
         )
+        # Plan stays PENDING so the caller can re-invoke with dry_run=false.
         return {
             "status": "DRY_RUN_SUCCESS",
             "plan_id": plan.plan_id,
@@ -1223,6 +1228,7 @@ def confirm_and_apply(
             result="error",
             error=error_message,
         )
+        store.update_status(plan.plan_id, store.STATUS_FAILED, error=error_message)
         return {"error": error_message, "plan_id": plan.plan_id}
 
     log_mutation(
@@ -1235,7 +1241,7 @@ def confirm_and_apply(
         dry_run=False,
         result="success",
     )
-    remove_plan(plan.plan_id)
+    store.update_status(plan.plan_id, store.STATUS_APPLIED, result=result)
 
     return {
         "status": "APPLIED",

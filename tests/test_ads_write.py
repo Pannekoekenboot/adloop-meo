@@ -94,11 +94,7 @@ class _FakeClient:
         return self._services[name]
 
 
-@pytest.fixture(autouse=True)
-def clear_pending_plans():
-    preview_store._pending_plans.clear()
-    yield
-    preview_store._pending_plans.clear()
+# Plan-store isolation is handled by the autouse fixture in conftest.py.
 
 
 @pytest.fixture
@@ -724,8 +720,7 @@ class TestProposeNegativeKeywordList:
             keywords=["free trial"],
         )
         plan_id = result["plan_id"]
-        from adloop.safety import preview as preview_store
-        assert plan_id in preview_store._pending_plans
+        assert preview_store.get_plan(plan_id) is not None
 
 
 class TestAddToNegativeKeywordList:
@@ -821,7 +816,7 @@ class TestAddToNegativeKeywordList:
             shared_set_id="555",
             keywords=["free trial"],
         )
-        assert result["plan_id"] in preview_store._pending_plans
+        assert preview_store.get_plan(result["plan_id"]) is not None
 
 
 class TestApplyAddToNegativeKeywordList:
