@@ -38,7 +38,7 @@ function summarizeChanges(plan: Plan): string {
 export function PlanCard({ plan }: { plan: Plan }) {
   return (
     <Link
-      href={`/plans/${plan.plan_id}`}
+      href={`/plans?id=${encodeURIComponent(plan.plan_id)}`}
       className="block rounded-lg border border-[var(--border)] bg-[var(--card)] p-4 transition-colors hover:border-[var(--foreground)]/30 hover:bg-[var(--muted-bg)]"
     >
       <div className="flex items-start justify-between gap-4">

@@ -18,13 +18,20 @@ checks and audit logging as approving via Claude.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from adloop import store
 from adloop.config import AdLoopConfig, load_config
+
+# Location of the compiled Next.js bundle. Populated by
+# ``scripts/build-web-ui.sh`` (or a manual ``npm run build`` inside
+# ``web-ui/``) and copied into the package so ``pip install`` picks it up.
+_STATIC_DIR = Path(__file__).parent / "static"
 
 
 def create_app(config: AdLoopConfig | None = None) -> FastAPI:
@@ -60,7 +67,42 @@ def create_app(config: AdLoopConfig | None = None) -> FastAPI:
     )
 
     _register_routes(app, cfg)
+    _mount_static_ui(app)
     return app
+
+
+def _mount_static_ui(app: FastAPI) -> None:
+    """Serve the compiled Next.js bundle from the same origin as the API.
+
+    Routes are registered before this mount, so /api/* always takes
+    precedence. If the bundle hasn't been built (dev setups running
+    ``next dev`` on :3000 separately), we just skip the mount and log
+    a hint.
+    """
+    if not _STATIC_DIR.is_dir() or not (_STATIC_DIR / "index.html").is_file():
+        # Runs during dev when the bundle hasn't been built yet. Not
+        # an error — the Next dev server on :3000 will proxy to this
+        # FastAPI via the rewrites() in next.config.ts.
+        @app.get("/", include_in_schema=False)
+        def _no_bundle() -> dict[str, str]:
+            return {
+                "status": "api-only",
+                "hint": (
+                    "The UI bundle is not built. Either run `npm run dev` "
+                    "in web-ui/ (which proxies /api here), or build the "
+                    "bundle with `scripts/build-web-ui.sh`."
+                ),
+            }
+
+        return
+
+    # ``html=True`` makes StaticFiles serve index.html for directory
+    # requests and fall back to 404.html for unknown paths.
+    app.mount(
+        "/",
+        StaticFiles(directory=str(_STATIC_DIR), html=True),
+        name="ui",
+    )
 
 
 # ---------------------------------------------------------------------------

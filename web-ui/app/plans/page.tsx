@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { api, ApiError, type Plan, formatRelativeTime } from "@/lib/api";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -10,7 +10,18 @@ import { Button } from "@/components/Button";
 type Health = { require_dry_run: boolean };
 
 export default function PlanDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  return (
+    <Suspense
+      fallback={<div className="text-sm text-[var(--muted)]">Loading…</div>}
+    >
+      <PlanDetail />
+    </Suspense>
+  );
+}
+
+function PlanDetail() {
+  const params = useSearchParams();
+  const id = params.get("id") ?? "";
   const [plan, setPlan] = useState<Plan | null>(null);
   const [health, setHealth] = useState<Health | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -19,6 +30,7 @@ export default function PlanDetailPage() {
   const [confirmApply, setConfirmApply] = useState(false);
 
   const reload = useCallback(() => {
+    if (!id) return;
     setLoadError(null);
     api
       .getPlan(id)
@@ -46,13 +58,7 @@ export default function PlanDetailPage() {
       await api.approvePlan(id);
       reload();
     } catch (e) {
-      if (e instanceof ApiError) {
-        setActionError(
-          typeof e.detail === "string" ? e.detail : JSON.stringify(e.detail),
-        );
-      } else {
-        setActionError((e as Error).message);
-      }
+      setActionError(extractError(e));
     } finally {
       setBusy(null);
       setConfirmApply(false);
@@ -66,18 +72,23 @@ export default function PlanDetailPage() {
       await api.rejectPlan(id);
       reload();
     } catch (e) {
-      setActionError(
-        e instanceof ApiError
-          ? typeof e.detail === "string"
-            ? e.detail
-            : JSON.stringify(e.detail)
-          : (e as Error).message,
-      );
+      setActionError(extractError(e));
     } finally {
       setBusy(null);
     }
   }
 
+  if (!id) {
+    return (
+      <div className="rounded-md border border-[var(--border)] bg-[var(--card)] p-4 text-sm">
+        No plan selected.{" "}
+        <Link href="/" className="underline">
+          Back to queue
+        </Link>
+        .
+      </div>
+    );
+  }
   if (loadError) {
     return (
       <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
@@ -223,9 +234,16 @@ export default function PlanDetailPage() {
           </pre>
         </Section>
       ) : null}
-
     </div>
   );
+}
+
+function extractError(e: unknown): string {
+  if (e instanceof ApiError) {
+    return typeof e.detail === "string" ? e.detail : JSON.stringify(e.detail);
+  }
+  if (e instanceof Error) return e.message;
+  return String(e);
 }
 
 function Section({
