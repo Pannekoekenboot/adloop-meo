@@ -575,3 +575,368 @@ When advising on Google Ads:
 - **Performance Max asset diversity**: PMax campaigns need diverse assets to perform well. Minimum recommended: 5+ headlines (max 30 chars), 5+ long headlines (max 90 chars), 5+ descriptions (max 90 chars), 5+ marketing images (1200x628), 5+ square images (1200x1200), 1+ logo (1200x1200), 1+ landscape logo (1200x300). A YouTube video is strongly recommended. Ad strength below GOOD usually means missing asset types.
 - **PMax transparency limitations**: The Google Ads API does not provide full channel-level breakdowns for PMax. `segments.ad_network_type` returns SEARCH, CONTENT, YOUTUBE_SEARCH, YOUTUBE_WATCH, and MIXED — but MIXED is a catch-all for most traffic. Do not promise users exact Search vs Display vs YouTube splits. Be honest about what the data shows and what it doesn't.
 - **Google recommendations are not neutral**: Google's auto-generated recommendations optimize for Google's revenue, not necessarily the advertiser's ROI. Budget increase and Broad Match recommendations should always be cross-referenced against actual conversion data. Bid strategy recommendations (switch to Smart Bidding) are usually sound. Keyword recommendations may be too broad. Never blindly apply recommendations — evaluate each one against the account's actual performance.
+
+## Google Ad Grants
+
+Google Ad Grants is a fundamentally different product from regular Google Ads. ~60% of MEO's clients are on Grants. Treat every Grants account with a separate set of rules, orchestration patterns, and safety checks.
+
+### What Ad Grants Is (and Isn't)
+
+**What it is:**
+- $10,000/month (≈$329/day) in free Google Search advertising credit for eligible nonprofits
+- Operates as a separate account type within the Google Ads interface — identifiable by "Google Ad Grants" label in account settings
+- Intended for mission-driven goals: donations, volunteer recruitment, newsletter signups, program awareness, informational queries
+
+**What it is NOT:**
+- Not a regular paid Search account — policy restrictions apply that don't exist in paid accounts
+- Not for commercial lead gen, broad traffic buying, or campaigns without clear nonprofit mission link
+- Not a replacement for strong organic/SEO presence
+- Ads always appear BELOW paid ads — Grants never wins position 1 over a paying advertiser bidding on the same term
+
+**Key structural differences vs paid accounts:**
+| Dimension | Regular Google Ads | Google Ad Grants |
+|-----------|-------------------|-----------------|
+| Budget | Unlimited (what you pay) | $10k/month cap, $329/day |
+| Networks | Search, Display, YouTube, Shopping, PMax | Search + Google Maps; PMax available since 2025 with limited inventory |
+| Ad position | Can be position 1 | Always below paid ads |
+| Bidding | All strategies | Smart Bidding required for conversion goals; no manual CPC recommended |
+| Keywords | All types allowed | No single-word keywords (exceptions: branded), no overly generic keywords, QS ≥ 3 required |
+| CTR | No minimum | **5% monthly CTR required** — 2 months below = suspension risk |
+| Geo targeting | Optional | **Required** — must target specific regions relevant to the organization |
+| Conversion tracking | Best practice | **Required** for Smart Bidding; 1 meaningful conversion/month minimum |
+
+### How to Identify a Grants Account
+
+Before applying ANY advice, check whether you're looking at a Grants or paid account. Run:
+```sql
+SELECT customer.descriptive_name, customer.id, customer.currency_code
+FROM customer
+```
+Or check via `list_accounts` — Grants accounts typically have "Grants" in the name or are sub-accounts under a Google for Nonprofits MCC. The daily budget cap of $329 is a reliable indicator.
+
+**IMPORTANT:** If a client has BOTH a paid account AND a Grants account (common for larger nonprofits), treat them separately. Never mix up advice between the two. Paid account rules do NOT apply to the Grants account and vice versa.
+
+### Ad Grants Compliance Requirements
+
+These are not best practices — they are policy requirements. Violating them risks account suspension.
+
+**Account-level (hard requirements):**
+1. **CTR ≥ 5% monthly average** — the single most important metric for compliance. Two consecutive months below 5% triggers suspension review.
+2. **Meaningful conversion tracking** — micro-goals like pageviews, scroll depth, session duration, or homepage visits CANNOT be the primary conversion in the Conversions column. Must have at least 1 real conversion per month (donation, form submit, signup, etc.).
+3. **HTTPS website** — non-HTTPS sites cannot be used as landing pages.
+4. **Own domain only** — all landing pages must be on the organization's own domain. No affiliate links, third-party donation platforms as final URLs (e.g. linking to an external giving page is a violation — must link to a page on the org's own domain first).
+5. **Monthly account activity** — account must be actively managed. Google requires changes at least every 90 days; in practice, monthly check-ins are the minimum.
+6. **Geo targeting required** — every campaign must target specific relevant regions. No global/untargeted campaigns.
+
+**Campaign-level (hard requirements):**
+1. **Minimum 2 ad groups per campaign** — campaigns with only 1 ad group are non-compliant.
+2. **Minimum 2 sitelink assets active on the account or campaign** — bare-minimum asset setup.
+3. **Valid ad in every ad group** — no ad groups running without at least 1 approved, non-limited RSA.
+
+**Keyword-level (hard requirements):**
+1. **No single-word keywords** — except for branded terms (organization name, program names). Keywords like "donation", "help", "nonprofit" alone are violations.
+2. **No overly generic keywords** — "jobs", "news", "weather", "free stuff" etc. will be flagged or cause suspension.
+3. **Quality Score ≥ 3 required on all active keywords** — QS 1 or 2 means immediate pause is mandatory. Auto-pause rule must be in place.
+4. **No keywords unrelated to the organization's mission** — campaigns must be mission-relevant.
+
+**Conversion tracking specifics for Grants:**
+- Allowed as primary conversions: form submissions, donation completions, newsletter signups, volunteer registrations, event registrations, phone calls, app downloads
+- NOT allowed as primary conversions in the Conversions column: pageviews, session duration, scroll depth, homepage visits, any purely engagement-based micro-goals
+- Google now actively audits conversion quality — if your only conversion is "visited homepage", expect compliance action
+- You CAN track micro-goals as secondary conversions (in "All conversions" but NOT in "Conversions") — this is fine and useful for analysis
+
+### Primary Goal Framework: Traffic vs Conversions
+
+Always determine the primary goal per campaign before any optimization decisions.
+
+**Traffic is the right primary goal when:**
+- Conversion tracking is not yet stable or meaningful
+- The campaign goal is primarily informational awareness or driving visitors to program content
+- There is insufficient conversion volume to feed Smart Bidding (< 30 conversions/month)
+- The website/landing page is not yet optimized for action
+
+Track and optimize on: Clicks, CTR, CPC, Impression Share
+
+**Conversions is the right primary goal when:**
+- Meaningful conversions are properly tracked (donation, form, signup)
+- Enough volume to feed the algorithm (≥ 30 conversions/month ideally; ≥ 15 to start)
+- Landing pages are genuinely optimized for the target action
+
+Track and optimize on: Conversions, CPA, Conversion Rate
+
+**Note:** Even with Conversions as primary goal, always monitor CTR separately — the 5% compliance threshold applies to the whole account regardless of bidding goal. A conversion-optimized campaign that drops CTR below 5% still puts compliance at risk.
+
+### Bidding Strategy for Grants (2026 Standard)
+
+**The old way (avoid):** Manual CPC, sturen op klikvolume zonder conversiesignaal, handmatige biedingen per keyword.
+
+**The current standard:**
+- **Start:** Maximize Clicks (TARGET_SPEND) while conversion tracking is being set up or validated
+- **Move to:** Maximize Conversions once ≥ 15 meaningful conversions/month are flowing in
+- **Advanced:** Target CPA (tCPA) once you have stable CPA data and ≥ 30 conversions/month
+
+**Safety rule:** NEVER set up Manual CPC on a Grants account in 2026. Not because Google blocks it (they may still allow it), but because it leads to:
+1. CTR instability → compliance risk
+2. No optimization signal → wasted Grants budget
+3. Over-indexing on clicks without quality filtering
+
+**Broad Match in Grants:** Broad Match is allowed but ONLY with Smart Bidding active AND a strong negative keyword list. Without those two conditions, Broad Match in Grants = irrelevant traffic + CTR collapse. Use PHRASE and EXACT as default. Add BROAD only if conversion data is strong and negative list is maintained weekly.
+
+### Search Campaign Setup for Grants
+
+**Structure principle:** Compact, intentie-gedreven. Niet oneindig veel varianten.
+
+**Campaign themes that work for most nonprofits:**
+1. Brand campaign (organization name + program names) — EXACT and PHRASE, always active
+2. Donation intent campaign ("doneren aan [cause]", "goed doel [thema]")
+3. Volunteer intent campaign ("vrijwilliger worden [stad/sector]")
+4. Program/service campaign per core program (hulp aanvragen, aanmelden, etc.)
+5. Information/awareness campaign for mission themes (only if landing pages have real content)
+
+**Ad group setup:**
+- 1 tight theme per ad group — not "everything about fundraising" in one group
+- 3-8 keywords per ad group, closely related
+- 1 strong RSA per ad group (with display paths set)
+- At minimum: 8 headlines, 3 descriptions — all directly relevant to the ad group's keyword theme
+- Never copy-paste the same RSA across ad groups
+
+**Negative keywords are non-negotiable:**
+- Weekly search term review for Grants accounts (more important than paid accounts — irrelevant matches destroy CTR compliance)
+- Build a shared negative list at account level for generic terms your org should never match
+- Common Grants negatives: job listings sites, competitor org names (unless deliberate), generic words that don't express intent
+
+### Performance Max in Grants (2025+)
+
+PMax became available in Ad Grants accounts in 2025. It runs differently than in paid accounts.
+
+**What PMax in Grants actually does:**
+- Primarily extends reach on Google Search (including Maps)
+- Does NOT run on YouTube, Display, Gmail, or Discover like paid PMax
+- Limited inventory means it's less powerful than paid PMax, but still useful for volume extension
+
+**When PMax makes sense in Grants:**
+- Search campaigns are maxing out budget but there's still relevant demand to reach
+- Local visibility is a priority (physical location, events, local services)
+- Strong first-party data is available (email list, donor CRM, volunteer database)
+- Conversion tracking is solid and meaningful conversions are flowing
+
+**When PMax does NOT make sense in Grants:**
+- Conversion tracking is weak or relies on micro-goals
+- Search campaigns aren't at budget cap (fix Search first, not expand to PMax)
+- Landing pages are weak — PMax needs strong signals from both assets AND pages
+- CTR compliance is already fragile — PMax in Grants can further dilute CTR visibility
+- No first-party audience signals available yet
+
+**PMax-first is WRONG for Grants.** The correct model:
+1. Search = control layer (brand, high-intent, compliance-stable)
+2. PMax = scale layer (added after Search is working)
+
+Never replace Search campaigns with PMax in a Grants account.
+
+**PMax asset group setup for Grants:**
+- 1 asset group per major thematic proposition (not per keyword variant)
+  - Doneren
+  - Vrijwilliger worden
+  - Hulp aanvragen
+  - Programma aanmelden
+  - Lokale vestiging / evenement
+- Search themes: add 5-10 per asset group based on mission terms, help-seeking language, program names — avoid synonyms that mean the same thing
+- Audience signals: always add website visitors + email/donor lists as first-party signals
+- Assets minimum per asset group: 5+ headlines (30 chars max), 5+ descriptions (90 chars max), 5+ images (landscape 1200x628 + square 1200x1200), logo, video recommended
+- Final URLs: always dedicated landing pages per proposition — never the homepage as the only URL
+- Primary conversions: only real actions (donation, form submit, signup) — never pageviews
+
+### Ad Grants Orchestration Patterns
+
+#### When auditing a Grants account
+
+1. Run `get_campaign_performance` for the last 30 days — note CTR at account level
+2. Immediately check: is CTR ≥ 5%? If not, this is the #1 priority — everything else is secondary
+3. Run `get_keyword_performance` — filter for QS 1-2 keywords (pause immediately), identify keywords with zero impressions (may be too restrictive or poor QS)
+4. Run `get_search_terms` — identify irrelevant matches that waste budget and destroy CTR
+5. Run `attribution_check` — verify meaningful conversions are flowing and correctly tracked
+6. Check campaign structure: min 2 ad groups per campaign, min 2 sitelinks active
+7. Run the GAQL compliance query below to get account-level CTR and flag any single-word keywords
+8. Check if the account has PMax — if yes, run `get_pmax_performance` to check asset strength and conversion contribution
+9. Summarize findings using the audit checklist (section below) and present a prioritized action list
+
+**GAQL: Account-level monthly CTR check:**
+```sql
+SELECT campaign.name, metrics.clicks, metrics.impressions, metrics.ctr
+FROM campaign
+WHERE segments.date DURING LAST_30_DAYS AND campaign.status = 'ENABLED'
+ORDER BY metrics.impressions DESC
+```
+
+**GAQL: Keywords with QS 1-2 (pause candidates):**
+```sql
+SELECT ad_group_criterion.keyword.text, ad_group_criterion.quality_info.quality_score,
+       ad_group.name, campaign.name, metrics.impressions, metrics.clicks
+FROM keyword_view
+WHERE segments.date DURING LAST_30_DAYS
+  AND ad_group_criterion.quality_info.quality_score < 3
+  AND ad_group_criterion.status = 'ENABLED'
+ORDER BY metrics.impressions DESC
+```
+
+**GAQL: Single-word keywords (compliance risk):**
+```sql
+SELECT ad_group_criterion.keyword.text, ad_group.name, campaign.name,
+       ad_group_criterion.quality_info.quality_score, metrics.impressions
+FROM keyword_view
+WHERE ad_group_criterion.status = 'ENABLED'
+  AND campaign.status = 'ENABLED'
+LIMIT 500
+```
+(Then filter in analysis for keywords without spaces — single-word keywords are non-compliant unless branded.)
+
+**GAQL: Ad groups with fewer than 2 active keywords (compliance risk):**
+```sql
+SELECT ad_group.name, campaign.name, ad_group.status
+FROM ad_group
+WHERE ad_group.status = 'ENABLED' AND campaign.status = 'ENABLED'
+```
+(Cross-reference with keyword counts — ad groups with 0 or 1 keyword need attention.)
+
+#### When CTR is below 5% (compliance emergency)
+
+CTR below 5% is the most common cause of Grants suspension. Treat it as urgent.
+
+1. Run `get_campaign_performance` — identify which campaigns have the lowest CTR
+2. Run `get_keyword_performance` — identify keywords with very low CTR (especially high-impression, low-click keywords)
+3. Run `get_search_terms` — identify irrelevant queries that are getting impressions but no clicks (these destroy CTR)
+4. Immediate actions:
+   - Pause or tighten keywords attracting irrelevant impressions (broad match keywords on generic terms are often the culprit)
+   - Add negative keywords for irrelevant search terms
+   - Pause keywords with QS < 3
+   - Improve RSA headlines — CTR-focused copy, not just informational copy
+   - Check ad approval status — disapproved ads with impressions count as zero-CTR
+5. Do NOT just pause everything to artificially inflate CTR — you need real relevance improvement, not data manipulation
+6. After changes, monitor weekly CTR. If 2 months below 5% have already passed, Google may need a manual review request via the Grants support team.
+
+#### When setting up new Grants campaigns
+
+1. Confirm the account is a Grants account (check daily budget cap, account type)
+2. **Pre-flight compliance check:**
+   - Is conversion tracking set up with meaningful conversions? If not, start with Traffic goal / Maximize Clicks
+   - Does the landing page have HTTPS?
+   - Does the landing page live on the organization's own domain?
+3. Determine primary goal: Traffic or Conversions (see framework above)
+4. Design campaign structure: 1 campaign per thematic area, 2+ ad groups per campaign
+5. Call `get_campaign_performance` to see existing campaigns — avoid duplicate themes
+6. Call `get_negative_keywords` to see what's already blocked
+7. Draft campaigns with `draft_campaign`:
+   - Bidding: MAXIMIZE_CONVERSIONS if tracking is ready; TARGET_SPEND if not
+   - Geo: Netherlands as default for most MEO clients (ID: 2528), plus Belgium (2056) if relevant
+   - Language: Dutch (1005) as default, add others if org serves multiple language communities
+   - Daily budget: $329 (max allowed for Grants)
+   - **Never set budget below $329** — Grants accounts often underspend anyway; there's no reason to cap below the free limit
+8. Draft ad groups with 2+ tight-theme keyword groups
+9. Draft RSAs with CTR-focused copy — remember Grants ads compete without budget, so click-worthiness depends entirely on relevance and ad copy quality
+10. Add sitelinks (minimum 2, recommend 4+)
+11. Present full preview — highlight compliance points
+
+#### When deciding whether to add PMax to a Grants account
+
+Before recommending PMax, validate ALL of the following:
+- [ ] Search campaigns are running and CTR is ≥ 5% — stable compliance
+- [ ] Meaningful conversion tracking is active (not just micro-goals)
+- [ ] Search campaigns are at or near daily budget cap (otherwise: fix Search first)
+- [ ] Landing pages are genuinely optimized (clear CTA, fast mobile, relevant content)
+- [ ] At least basic audience signals are available (website visitors, or an email list)
+
+If any box is unchecked, do NOT add PMax. Fix the missing item first.
+
+If all boxes are checked, add PMax as a supplementary campaign:
+1. 1 PMax campaign with asset groups per proposition (max 3-5 asset groups to start)
+2. Add audience signals immediately — do not launch PMax without any signals
+3. Add search themes per asset group (5-10 per group)
+4. Monitor first 2-3 weeks: spend, conversions, CPA — do NOT optimize within the learning phase
+5. After learning phase: compare PMax CPA vs Search CPA; evaluate conversion quality
+
+#### When a Grants account gets suspended
+
+Suspension can happen for: 2 months < 5% CTR, QS violations, invalid conversions as primary metric, single-word keywords, missing sitelinks, inactivity, or website policy issues.
+
+Recovery process:
+1. Run a full compliance audit (all items in the checklist below)
+2. Fix ALL compliance violations — do not apply for reinstatement while violations exist
+3. Ensure at least 1 meaningful conversion has been tracked
+4. Submit reinstatement request via Google for Nonprofits support (not regular Google Ads support)
+5. Average reinstatement time: 3-10 business days
+6. After reinstatement: implement weekly CTR monitoring to prevent recurrence
+
+### Ad Grants Audit Checklist (2026)
+
+Run this checklist before reporting on or making changes to any Grants account:
+
+**Compliance (must all be YES before anything else):**
+- [ ] Monthly CTR ≥ 5% at account level?
+- [ ] No single-word keywords active (except branded)?
+- [ ] No keywords with QS 1-2 active?
+- [ ] All campaigns have ≥ 2 ad groups?
+- [ ] ≥ 2 sitelinks active at campaign or account level?
+- [ ] Specific geo targeting set (not global)?
+- [ ] All landing pages on org's own domain, HTTPS?
+- [ ] No micro-goals (pageviews, session duration) as primary Conversions metric?
+- [ ] At least 1 meaningful conversion tracked in last 30 days?
+
+**Performance (assess after compliance is confirmed):**
+- [ ] Primary goal per campaign explicitly set (Traffic or Conversions)?
+- [ ] Search campaigns active on brand + core intent themes?
+- [ ] Bidding strategy appropriate for current data maturity?
+- [ ] Search terms reviewed and negatives up to date (last 30 days)?
+- [ ] If PMax running: meaningful conversion contribution and acceptable CPA?
+- [ ] Asset group relevance: are asset groups thematically tight?
+- [ ] Landing pages per proposition: clear CTA, fast mobile, relevant content?
+
+**Reporting (always present):**
+- Clicks development (MoM or WoW)
+- Conversions development
+- CTR — with explicit note if close to 5% threshold
+- Search vs PMax contribution (if PMax active)
+- 1 clear optimization focus for the period
+
+**Always close with:**
+1. What did we see?
+2. What does it mean?
+3. What do we do differently?
+
+### Ad Grants Safety Rules (CRITICAL — in addition to general safety rules)
+
+These rules OVERRIDE regular Google Ads behavior for Grants accounts:
+
+1. **NEVER recommend Manual CPC for a Grants account.** Maximize Clicks or Maximize Conversions only. Manual CPC in Grants in 2026 is an anti-pattern.
+
+2. **NEVER add single-word keywords.** Even if the user requests it. Explain that single-word keywords are a compliance violation in Grants. Use 2+ word phrases always.
+
+3. **NEVER set a daily budget below $329.** The $329/day is the Grants limit — there's no reason to cap below the free allowance. If the user insists on a lower budget, explain why this hurts performance unnecessarily.
+
+4. **NEVER set micro-goals as primary conversions.** If the user wants to add "session duration" or "pageview" as a Conversion, redirect them to proper conversion setup and add those as secondary metrics only (not in the Conversions column).
+
+5. **ALWAYS check CTR before making structural changes.** If account CTR is < 5%, CTR recovery is the ONLY priority. Do not add new campaigns, keywords, or PMax until CTR is stable. Adding more broad keywords to a low-CTR Grants account makes it worse.
+
+6. **ALWAYS verify meaningful conversion tracking before recommending PMax or Maximize Conversions bidding.** If the only conversions are micro-goals, tell the user conversion tracking needs to be fixed first.
+
+7. **NEVER recommend adding PMax if Search is not at budget cap.** PMax should extend reach, not substitute for a healthy Search foundation.
+
+8. **Treat CTR warnings as urgent.** At 4-5% CTR, proactively flag the compliance risk to the user. At < 4%, treat as an emergency requiring immediate structural fixes before any other optimization.
+
+9. **Landing page URLs must be the org's own domain.** Before drafting any ad, verify the final_url is on the org's own domain (not an external donation processor, ticketing platform, etc.). If it's not, flag this as a compliance violation before proceeding.
+
+10. **Budget is $329/day — always.** Never propose a different daily budget for a Grants campaign unless the user has a specific operational reason. Free money should be maximally used.
+
+### Common 2026 Mistakes (Never Do These)
+
+- Starting PMax before conversion tracking is meaningful
+- Using PMax as a replacement for Search (use as addition)
+- Building asset groups that are too broad (one group for the whole organization)
+- Using generic, non-propositional assets
+- Treating audience signals as hard targeting (they are hints, not locks)
+- Filling search themes with synonyms that mean the same thing
+- Optimizing during the PMax learning phase (first 2-3 weeks)
+- Drawing conclusions from CPA without checking conversion quality
+- Letting QS 1-2 keywords sit active — they destroy relevance and risk compliance
+- Not maintaining weekly negative keyword hygiene in Grants (more critical than in paid accounts)
+- Setting micro-goals as primary Conversions
+- Ignoring CTR until it's already below 5% for 2 months
