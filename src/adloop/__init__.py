@@ -23,6 +23,14 @@ def main() -> None:
         except KeyboardInterrupt:
             print("\n\n  Setup cancelled.\n")
             sys.exit(130)
+    elif len(sys.argv) > 1 and sys.argv[1] == "web":
+        from adloop.web.serve import run as run_web
+
+        try:
+            run_web()
+        except KeyboardInterrupt:
+            print("\n  Approval UI stopped.\n")
+            sys.exit(130)
     else:
         from adloop.server import mcp
 

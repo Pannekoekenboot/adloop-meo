@@ -32,4 +32,12 @@ requires = ["uv_build>=0.10.8,<0.11.0"]
 build-backend = "uv_build"
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "pytest-asyncio>=0.23"]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    # Web extras are required to run the approval-UI tests.
+    "fastapi>=0.110",
+]
+# Install with `pip install adloop-meo[web]` or `uv sync --extra web` to
+# enable the `adloop web` command (approval UI backend).
+web = ["fastapi>=0.110", "uvicorn[standard]>=0.27"]
